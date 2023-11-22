@@ -55,7 +55,6 @@ def auto_raschet():
                 cursor.execute("SELECT kust_ex, kust_ent, GEN_rating FROM Raschet WHERE kust_ex=? AND GEN_rating=?",
                                values)
                 finish_solution = cursor.fetchone()
-                print(finish_solution)
                 cursor.execute("DELETE FROM Raschet WHERE kust_ent=?", (finish_solution[1],))
                 cursor.execute("INSERT INTO auto_raschet(kust_ex, kust_ent, GEN_rating) VALUES(?, ?, ?)",
                                finish_solution)
