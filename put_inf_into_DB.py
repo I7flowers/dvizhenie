@@ -1,6 +1,8 @@
 import sqlite3
 import openpyxl
-from get_dop_inf import m_e_spisok, GP_spisok
+import psycopg2
+
+from get_dop_inf import m_e_spisok, GP_spisok, host, user, password, db_name, port
 from typing import NamedTuple
 
 
@@ -54,11 +56,18 @@ def import_exits(start_string: int, finish_string: int) -> list:
 def export_exits(start_string: int, finish_string: int):
     # """Полученный список вставляем в БД"""
     Exits_ = import_exits(start_string, finish_string)
-    with sqlite3.connect("DB1.db") as db:
-        cursor = db.cursor()
+    connection = psycopg2.connect(
+        host=host,
+        user=user,
+        password=password,
+        database=db_name,
+        port=port
+    )
+    connection.autocommit = True
+    with connection.cursor() as cursor:
         for Exit_ in Exits_:
-            cursor.execute("INSERT INTO Exit_ VALUES (?, ?, ?, ?, ?, ?);",
-                           (Exit_.kust, Exit_.m_e, Exit_.exit_date, Exit_.GP, Exit_.RUO, Exit_.SNPH))
+            cursor.execute("INSERT INTO exit_ VALUES (%s, %s, %s, %s, %s, %s);", Exit_)
+    connection.close()
 
 
 def import_enterances(start_string: int, finish_string: int) -> list:
@@ -93,9 +102,16 @@ def import_enterances(start_string: int, finish_string: int) -> list:
 def export_enterances(start_string: int, finish_string: int):
     # """Полученный список вставляем в БД"""
     Enterances_ = import_enterances(start_string, finish_string)
-    with sqlite3.connect("DB1.db") as db:
-        cursor = db.cursor()
+    connection = psycopg2.connect(
+        host=host,
+        user=user,
+        password=password,
+        database=db_name,
+        port=port
+    )
+    connection.autocommit = True
+    with connection.cursor() as cursor:
         for Enterance in Enterances_:
-            cursor.execute("INSERT INTO Enterance VALUES (?, ?, ?, ?, ?, ?, ?);",
-                           (Enterance.kust, Enterance.m_e, Enterance.Ist_stage,
-                            Enterance.IInd_stage, Enterance.GP, Enterance.RUO, Enterance.SNPH))
+            cursor.execute("INSERT INTO enterance(kust, m_e, first_stage, second_stage, GP, RUO, SNPH) VALUES (%s, "
+                           "%s, %s, %s, %s, %s, %s);", Enterance)
+    connection.close()
