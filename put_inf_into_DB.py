@@ -1,4 +1,6 @@
 import sqlite3
+from datetime import datetime
+
 import openpyxl
 import psycopg2
 
@@ -9,7 +11,7 @@ from typing import NamedTuple
 class Exits(NamedTuple):
     kust: str
     m_e: str
-    exit_date: str
+    exit_date: datetime
     GP: int
     RUO: bool
     SNPH: bool
@@ -18,8 +20,8 @@ class Exits(NamedTuple):
 class Enterances(NamedTuple):
     kust: str
     m_e: str
-    Ist_stage: str
-    IInd_stage: str
+    Ist_stage: datetime
+    IInd_stage: datetime
     GP: int
     RUO: bool
     SNPH: bool
@@ -35,7 +37,7 @@ def import_exits(start_string: int, finish_string: int) -> list:
         m_e = ws.cell(number_of_string, 5).value
         if m_e is not None and m_e not in m_e_spisok:
             print("В строке №", number_of_string, "ошибка в названии месторождения. Нужно исправить")
-        exit_date = str(ws.cell(number_of_string, 6).value)[0:10]
+        exit_date = ws.cell(number_of_string, 6).value
         GP = ws.cell(number_of_string, 8).value
         if GP is not None and GP not in GP_spisok:
             print("В строке №", number_of_string, "ошибка в грузоподъемности. Нужно исправить")
@@ -45,7 +47,7 @@ def import_exits(start_string: int, finish_string: int) -> list:
         SNPH = ws.cell(number_of_string, 10).value
         if SNPH is not None and SNPH != 0 and SNPH != 1:
             print("В строке №", number_of_string, "ошибка в SNPH. Нужно исправить")
-        Exit_ = Exits(kust, m_e, exit_date, GP, RUO, SNPH)
+        Exit_ = Exits(kust, m_e, GP, RUO, SNPH, exit_date)
         if Exit_.kust == Exit_.m_e == Exit_.GP is None:
             continue
         else:
@@ -80,8 +82,6 @@ def import_enterances(start_string: int, finish_string: int) -> list:
         m_e = ws.cell(number_of_string, 13).value
         if m_e is not None and m_e not in m_e_spisok:
             print("В строке №", number_of_string, "ошибка в названии месторождения. Нужно исправить")
-        Ist_stage = str(ws.cell(number_of_string, 14).value)[0:10]
-        IInd_stage = str(ws.cell(number_of_string, 15).value)[0:10]
         GP = ws.cell(number_of_string, 17).value
         if GP is not None and GP not in GP_spisok:
             print("В строке №", number_of_string, "ошибка в грузоподъемности. Нужно исправить")
@@ -91,7 +91,9 @@ def import_enterances(start_string: int, finish_string: int) -> list:
         SNPH = ws.cell(number_of_string, 20).value
         if SNPH is not None and SNPH != 0 and SNPH != 1:
             print("В строке №", number_of_string, "ошибка в SNPH. Нужно исправить")
-        Enterance = Enterances(kust, m_e, Ist_stage, IInd_stage, GP, RUO, SNPH)
+        Ist_stage = ws.cell(number_of_string, 14).value
+        IInd_stage = ws.cell(number_of_string, 15).value
+        Enterance = Enterances(kust, m_e, GP, RUO, SNPH, Ist_stage, IInd_stage)
         if Enterance.kust == Enterance.m_e == Enterance.GP is None:
             continue
         else:
@@ -112,6 +114,5 @@ def export_enterances(start_string: int, finish_string: int):
     connection.autocommit = True
     with connection.cursor() as cursor:
         for Enterance in Enterances_:
-            cursor.execute("INSERT INTO enterance(kust, m_e, first_stage, second_stage, GP, RUO, SNPH) VALUES (%s, "
-                           "%s, %s, %s, %s, %s, %s);", Enterance)
+            cursor.execute("INSERT INTO enterance VALUES (%s, %s, %s, %s, %s, %s, %s);", Enterance)
     connection.close()

@@ -1,6 +1,4 @@
-import datetime
 from datetime import timedelta
-import sqlite3
 from typing import NamedTuple
 
 from get_dop_inf import host, user, password, db_name, port, Rating
@@ -18,10 +16,11 @@ def GP():
     )
     connection.autocommit = True
     with connection.cursor() as cursor:
-        cursor.execute("SELECT kust, GP FROM exit_")
+        cursor.execute("SELECT kust, GP, exit_date FROM exit_ ORDER BY exit_date")
         for kustGPex in cursor.fetchall():
             kust_ex = kustGPex[0]
             GP_ex = kustGPex[1]
+            exit_date = kustGPex[2]
             cursor.execute("SELECT kust, GP FROM enterance")
             for kustGPent in cursor.fetchall():
                 kust_ent = kustGPent[0]
@@ -61,8 +60,9 @@ def GP():
                     comment = 'Требуется оптимизация буримости'
                 else:  # Бурение нецелесообразно. (вариант исключается)
                     continue
-                values = (kust_ex, kust_ent, rating, comment)
-                cursor.execute("INSERT INTO raschet(kust_ex, kust_ent, GP_rating, Comment) VALUES(%s, %s, %s, %s)",
+                values = (kust_ex, kust_ent, rating, comment, exit_date)
+                cursor.execute("INSERT INTO raschet(kust_ex, kust_ent, GP_rating, Comment, exit_date) VALUES(%s, %s, "
+                               "%s, %s, %s)",
                                values)
     connection.close()
 
@@ -76,42 +76,38 @@ def Ist():
         port=port
     )
     connection.autocommit = True
-    with connection.cursor() as cursor:
+    with (connection.cursor() as cursor):
         cursor.execute("SELECT kust_ex, kust_ent FROM raschet")
         PARES = cursor.fetchall()
         for PARE in PARES:
             kust_ex = PARE[0]
             kust_ent = PARE[1]
             cursor.execute("SELECT exit_date FROM exit_ WHERE kust = %s", (kust_ex,))
-            exit_date = datetime.datetime.strptime(cursor.fetchone()[0], "%Y-%m-%d")
+            exit_date = cursor.fetchone()[0]
             cursor.execute("SELECT first_stage FROM enterance WHERE kust = %s", (kust_ent,))
-            Ist_stage = str(cursor.fetchone()[0])
+            Ist_stage = cursor.fetchone()[0]
             rating = 0
             comment = ' '
-            if Ist_stage == 'готов':  # Идеальный вариант. Первый этап готов (10 баллов)
+            if exit_date >= Ist_stage:  # Первый этап будет готов к выходу БУ (10 баллов)
                 rating += 10
-            else:
-                Ist_stage = datetime.datetime.strptime(Ist_stage, "%Y-%m-%d")
-                if exit_date >= Ist_stage:  # Первый этап будет готов к выходу БУ (10 баллов)
-                    rating += 10
-                    comment = ' '
-                elif exit_date + timedelta(
-                        7) >= Ist_stage:  # Первый этап будет готов через 7 дней после выхода БУ (9 баллов)
-                    rating += 9
-                    comment = ' '
-                elif exit_date + timedelta(
-                        12) >= Ist_stage:  # Первый этап будет готов через 12 дней после выхода БУ (8 баллов)
-                    rating += 8
-                    comment = ' '
-                elif exit_date + timedelta(
-                        18) >= Ist_stage:  # Первый этап будет готов через 18 дней после выхода БУ (3 баллов)
-                    rating += 3
-                    comment = ' '
-                elif exit_date + timedelta(
-                        20) >= Ist_stage:
-                    # Первый этап будет готов через 20 дней после выхода БУ (1 балл, требуется ускорение)
-                    rating += 1
-                    comment = ', требуется ускорение I этапа'
+                comment = ' '
+            elif exit_date + timedelta(
+                    7) >= Ist_stage:  # Первый этап будет готов через 7 дней после выхода БУ (9 баллов)
+                rating += 9
+                comment = ' '
+            elif exit_date + timedelta(
+                    12) >= Ist_stage:  # Первый этап будет готов через 12 дней после выхода БУ (8 баллов)
+                rating += 8
+                comment = ' '
+            elif exit_date + timedelta(
+                    18) >= Ist_stage:  # Первый этап будет готов через 18 дней после выхода БУ (3 баллов)
+                rating += 3
+                comment = ' '
+            elif exit_date + timedelta(
+                    20) >= Ist_stage:
+                # Первый этап будет готов через 20 дней после выхода БУ (1 балл, требуется ускорение)
+                rating += 1
+                comment = ', требуется ускорение I этапа'
             if rating > 0:
                 values1 = (rating, kust_ex, kust_ent)
                 values2 = (comment, kust_ex, kust_ent)
@@ -140,43 +136,37 @@ def IInd():
             kust_ex = PARE[0]
             kust_ent = PARE[1]
             cursor.execute("SELECT exit_date FROM exit_ WHERE kust = %s", (kust_ex,))
-            exit_date = datetime.datetime.strptime(cursor.fetchone()[0], "%Y-%m-%d")
+            exit_date = cursor.fetchone()[0]
             cursor.execute("SELECT second_stage FROM enterance WHERE kust = %s", (kust_ent,))
-            IInd_stage = str(cursor.fetchone()[0])
+            IInd_stage = cursor.fetchone()[0]
             rating = 0
-            if IInd_stage == 'готов':  # Идеальный вариант. Второй этап готов (10 баллов)
+            if exit_date >= IInd_stage:  # Второй этап будет готов к выходу БУ (10 баллов)
                 rating += 10
                 comment = ' '
-            else:
-                IInd_stage = datetime.datetime.strptime(IInd_stage, '%Y-%m-%d')
-                if exit_date >= IInd_stage:  # Второй этап будет готов к выходу БУ (10 баллов)
-                    rating += 10
-                    comment = ' '
-                elif exit_date + timedelta(
-                        10) >= IInd_stage:  # Второй этап будет готов через 10 дней после выхода БУ (9 баллов)
-                    rating += 9
-                    comment = ' '
-                elif exit_date + timedelta(
-                        14) >= IInd_stage:  # Второй этап будет готов через 14 дней после выхода БУ (8 баллов)
-                    rating += 8
-                    comment = ' '
-                elif exit_date + timedelta(
-                        21) >= IInd_stage:  # Второй этап будет готов через 21 дней после выхода БУ (6 баллов)
-                    rating += 6
-                    comment = ' '
-                elif exit_date + timedelta(
-                        28) >= IInd_stage:  # Второй этап будет готов через 28 дней после выхода БУ (4 баллов)
-                    rating += 4
-                    comment = ' '
-                elif exit_date + timedelta(
-                        35) >= IInd_stage:  # Второй этап будет готов через 35 дней после выхода БУ (2 балла)
-                    rating += 2
-                    comment = ' '
-                elif exit_date + timedelta(
-                        42) >= IInd_stage:
-                    # Второй этап будет готов через 42 дня после выхода БУ (1 балл, требуется ускорение)
-                    rating += 1
-                    comment = 'требуется ускорение II этапа'
+            elif exit_date + timedelta(10) >= IInd_stage:
+                # Второй этап будет готов через 10 дней после выхода БУ (9 баллов)
+                rating += 9
+                comment = ' '
+            elif exit_date + timedelta(14) >= IInd_stage:
+                # Второй этап будет готов через 14 дней после выхода БУ (8 баллов)
+                rating += 8
+                comment = ' '
+            elif exit_date + timedelta(21) >= IInd_stage:
+                # Второй этап будет готов через 21 дней после выхода БУ (6 баллов)
+                rating += 6
+                comment = ' '
+            elif exit_date + timedelta(28) >= IInd_stage:
+                # Второй этап будет готов через 28 дней после выхода БУ (4 баллов)
+                rating += 4
+                comment = ' '
+            elif exit_date + timedelta(35) >= IInd_stage:
+                # Второй этап будет готов через 35 дней после выхода БУ (2 балла)
+                rating += 2
+                comment = ' '
+            elif exit_date + timedelta(42) >= IInd_stage:
+                # Второй этап будет готов через 42 дня после выхода БУ (1 балл, требуется ускорение)
+                rating += 1
+                comment = 'требуется ускорение II этапа'
             if rating > 0:
                 values1 = (rating, kust_ex, kust_ent)
                 values2 = (comment, kust_ex, kust_ent)
@@ -295,42 +285,6 @@ def clear():
         cursor.execute("DELETE FROM raschet")
         cursor.execute("DELETE FROM for_handmade_raschet")
         cursor.execute("DELETE FROM auto_raschet")
-    connection.close()
-
-
-def sort():
-    # Сортируем таблицы по времени
-    connection = psycopg2.connect(
-        host=host,
-        user=user,
-        password=password,
-        database=db_name,
-        port=port
-    )
-    connection.autocommit = True
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT * FROM exit_")
-        sort_exit_ = cursor.fetchall()
-        sort_exit_.sort(key=lambda a: datetime.datetime.strptime(str(a[2]), '%Y-%m-%d'))
-        cursor.execute("DELETE FROM exit_")
-        for elem in sort_exit_:
-            cursor.execute("INSERT INTO exit_(kust, m_e, exit_date, GP, RUO, SNPH) VALUES(%s, %s, %s, %s, %s, %s)",
-                           elem)
-
-        cursor.execute("SELECT * FROM enterance")
-        sort_enterance = cursor.fetchall()
-        for_sorting = []
-        cursor.execute("DELETE FROM enterance")
-        for elem in sort_enterance:
-            if elem[2] == 'готов':
-                cursor.execute("INSERT INTO enterance(kust, m_e, first_stage, second_stage, GP, RUO, SNPH)"
-                               "VALUES(%s, %s, %s, %s, %s, %s, %s)", elem)
-            else:
-                for_sorting.append(elem)
-        for_sorting.sort(key=lambda a: datetime.datetime.strptime(str(a[2]), '%Y-%m-%d'))
-        for elem in for_sorting:
-            cursor.execute("INSERT INTO enterance(kust, m_e, first_stage, second_stage, GP, RUO, SNPH) "
-                           "VALUES(%s, %s, %s, %s, %s, %s, %s)", elem)
     connection.close()
 
 

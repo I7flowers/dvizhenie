@@ -1,4 +1,3 @@
-
 import datetime
 
 import psycopg2
@@ -17,26 +16,13 @@ def handmade_raschet():
     connection.autocommit = True
     with connection.cursor() as cursor:
         # выбираем кусты котрые выходят в следующие 45 суток
-        cursor.execute("SELECT kust, exit_date FROM exit_")
-        kust_end = cursor.fetchall()
-        today = datetime.date.today()
-        kust_end_handmade = []
-        for elem in kust_end:
-            end = datetime.datetime.strptime(elem[1], '%Y-%m-%d').date()
-            if today + datetime.timedelta(45) >= end:
-                kust_end_handmade.append(str(elem[0]))
-            else:
-                break
-        print(kust_end_handmade)
-        cursor.execute("SELECT * FROM raschet")
-        for KPexKPent in cursor.fetchall():
-            kust_ex = KPexKPent[0]
-            if kust_ex in kust_end_handmade:
-                cursor.execute(
-                    "INSERT INTO For_handmade_raschet(kust_ex, kust_ent, GEN_rating, "
-                    "GP_rating, first_stage_rating, second_stage_rating, m_e_rating, RUO_rating, Comment) "
-                    "VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                    KPexKPent)
+        today_and_45 = datetime.date.today()+datetime.timedelta(45)
+
+        cursor.execute("SELECT * FROM raschet WHERE exit_date<=%s ORDER BY exit_date, kust_ex", (today_and_45, ))
+        for_handmade = cursor.fetchall()
+        for elem in for_handmade:
+            cursor.execute("INSERT INTO for_handmade_raschet VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", elem)
+        cursor.execute("DELETE FROM raschet WHERE exit_date<=%s", (today_and_45, ))
 
     dvizh_opr = str(input('Введите кусты, движение на которые определено вручную (через пробел):', ))
     spis_dvizh_opr = dvizh_opr.split()
@@ -53,11 +39,8 @@ def handmade_raschet():
     with connection.cursor() as cursor:
         for elem in spis_dvizh_opr:
             cursor.execute("DELETE FROM raschet WHERE kust_ent=%s", (elem,))
-
-        cursor.execute("SELECT DISTINCT kust_ex FROM for_handmade_raschet")
-        for elem in cursor.fetchall():
-            cursor.execute("DELETE FROM Raschet WHERE kust_ex=%s", elem)
     connection.close()
+
 
 def auto_raschet():
     connection = psycopg2.connect(
@@ -78,7 +61,9 @@ def auto_raschet():
                                (kust_ex[0], 'нет кандидата'))
             else:
                 values = (kust_ex[0], max_gen_rating)
-                cursor.execute("SELECT kust_ex, kust_ent, GEN_rating FROM raschet WHERE kust_ex=%s AND GEN_rating=%s", values)
+                cursor.execute("SELECT kust_ex, kust_ent, GEN_rating FROM raschet WHERE kust_ex=%s AND GEN_rating=%s "
+                               "ORDER BY exit_date, kust_ex",
+                               values)
                 finish_solution = cursor.fetchone()
                 cursor.execute("DELETE FROM raschet WHERE kust_ent=%s", (finish_solution[1],))
                 cursor.execute("INSERT INTO auto_raschet(kust_ex, kust_ent, GEN_rating) VALUES(%s, %s, %s)",
